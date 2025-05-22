@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, setDoc,updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import axios from "axios";
 import { db, auth } from "../../firebase/config";
 import {
@@ -10,6 +10,22 @@ import {
   generateAtsResume,
 } from "../../services/geminiService";
 import CodeEditorSection from "../../components/CodeEditorSection";
+
+const parseQuestion = (question: string) => {
+  const parts = question.split(
+    /(?=Problem Statement:|Requirements:|Example Input\/Output:|Expected Output:|Constraints:|Hints?)/g
+  );
+
+  const map: Record<string, string> = {};
+  parts.forEach((part) => {
+    const [title, ...content] = part.split(":");
+    if (title && content.length > 0) {
+      map[title.trim()] = content.join(":").trim();
+    }
+  });
+
+  return map;
+};
 
 const TestTakingPage: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
@@ -32,17 +48,29 @@ const TestTakingPage: React.FC = () => {
   const [testData, setTestData] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<number>(71); // Default: Python (id 71)
 
   const recognitionRef = useRef<any>(null);
 
-  const judge0URL = import.meta.env.VITE_JUDGE0_URL || "https://judge0-ce.p.rapidapi.com";
+  const judge0URL =
+    import.meta.env.VITE_JUDGE0_URL || "judge0-ce.p.rapidapi.com";
   const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY;
+
+  const languageOptions = [
+    { id: 71, name: "Python (3.8.1)" },
+    { id: 54, name: "C++ (GCC 9.2.0)" },
+    { id: 62, name: "Java (OpenJDK 13.0.1)" },
+    { id: 63, name: "JavaScript (Node.js 12.14.0)" },
+  ];
 
   const testWarnings: any[] = [];
 
   const checkPermissions = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
       setCameraGranted(true);
       setMicGranted(true);
       stream.getTracks().forEach((track) => track.stop());
@@ -69,12 +97,15 @@ const TestTakingPage: React.FC = () => {
     try {
       const assignmentRef = doc(db, "testAssignments", testId!);
       const assignmentSnap = await getDoc(assignmentRef);
-      if (!assignmentSnap.exists()) return navigate("/dashboard");
-
+      if (!assignmentSnap.exists()) {
+        return navigate("/dashboard");
+      }
       const assignment = assignmentSnap.data();
       const testRef = doc(db, "tests", assignment.testId);
       const testSnap = await getDoc(testRef);
-      if (!testSnap.exists()) return navigate("/dashboard");
+      if (!testSnap.exists()) {
+        return navigate("/dashboard");
+      }
 
       const test = testSnap.data();
       setTestData(test);
@@ -148,32 +179,34 @@ const TestTakingPage: React.FC = () => {
     }, 40000); // 40 seconds
   };
 
-  const handleRunCode = async () => {
-    setOutput("Running...");
-    try {
-      const response = await axios.post(
-        `${judge0URL}/submissions?base64_encoded=false&wait=true`,
-        {
-          source_code: currentCode,
-          language_id: 71,
-          stdin: "",
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-RapidAPI-Key": rapidApiKey,
-            "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
-          },
-        }
-      );
-      const result = response.data;
-      setOutput(
-        result.stderr ? `❌ Error:\n${result.stderr}` : `✅ Output:\n${result.stdout}`
-      );
-    } catch {
-      setOutput("❌ Failed to run code");
-    }
-  };
+  // const handleRunCode = async () => {
+  //   setOutput("Running...");
+  //   try {
+  //     const response = await axios.post(
+  //       `https://judge0-ce.p.rapidapi.com/submissions/batch`,
+  //       {
+  //         source_code: currentCode,
+  //         language_id: selectedLanguage,
+  //         stdin: "",
+  //       },
+  //       {
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           "X-RapidAPI-Key":"4de953dca3msh9e69eb61e89af05p1b21a7jsn7ebf34d234a5",
+  //           "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+  //         },
+  //       }
+  //     );
+  //     const result = response.data;
+  //     setOutput(
+  //       result.stderr
+  //         ? `❌ Error:\n${result.stderr}`
+  //         : `✅ Output:\n${result.stdout}`
+  //     );
+  //   } catch {
+  //     setOutput("❌ Failed to run code");
+  //   }
+  // };
 
   // const handleSubmit = async () => {
   //   if (submitting) return;
@@ -235,80 +268,115 @@ const TestTakingPage: React.FC = () => {
   //   setSubmitting(false);
   // };
 
+  const handleRunCode = async () => {
+    setOutput("Running...");
+    try {
+      const response = await axios.post(
+        `https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true`,
+        {
+          source_code: currentCode,
+          language_id: selectedLanguage,
+          stdin: "",
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-RapidAPI-Key":
+              "4de953dca3msh9e69eb61e89af05p1b21a7jsn7ebf34d234a5",
+            "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+          },
+        }
+      );
+
+      const result = response.data;
+
+      setOutput(
+        result.stderr
+          ? `❌ Error:\n${result.stderr}`
+          : `✅ Output:\n${result.stdout}`
+      );
+    } catch (error) {
+      setOutput(`❌ Failed to run code: ${error.message}`);
+    }
+  };
 
   const handleSubmit = async () => {
-  if (submitting) {return;}
-  setSubmitting(true);
+    if (submitting) {
+      return;
+    }
+    setSubmitting(true);
 
-  try {
-    const user = auth.currentUser;
-    if (!user) {return alert("Not authenticated");}
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        return alert("Not authenticated");
+      }
 
-    const testTitle = testData.title;
-    const role = testData.role;
-    const topics = testData.topics;
-    const codingQuestion = practicalQuestion;
-    const vivaQA = transcripts.map((answer, index) => ({
-      question: vivaQuestions[index],
-      answer,
-    }));
+      const testTitle = testData.title;
+      const role = testData.role;
+      const topics = testData.topics;
+      const codingQuestion = practicalQuestion;
+      const vivaQA = transcripts.map((answer, index) => ({
+        question: vivaQuestions[index],
+        answer,
+      }));
 
-    const summary = await generateSummaryReport(
-      testTitle,
-      role,
-      topics,
-      codingQuestion,
-      currentCode,
-      vivaQA,
-      testWarnings
-    );
+      const summary = await generateSummaryReport(
+        testTitle,
+        role,
+        topics,
+        codingQuestion,
+        currentCode,
+        vivaQA,
+        testWarnings
+      );
 
-    const resume = await generateAtsResume(
-      role,
-      testTitle,
-      topics,
-      currentCode,
-      summary
-    );
+      const resume = await generateAtsResume(
+        role,
+        testTitle,
+        topics,
+        currentCode,
+        summary
+      );
 
-    // Save the test submission
-    await setDoc(doc(db, "submissions", `${testId}_${user.uid}`), {
-      userId: user.uid,
-      testId,
-      testTitle,
-      role,
-      topics,
-      codingQuestion,
-      code: currentCode,
-      viva: vivaQA,
-      warnings: testWarnings,
-      summaryReport: summary,
-      resume,
-      submittedAt: new Date().toISOString(),
-    });
+      // Save the test submission
+      await setDoc(doc(db, "submissions", `${testId}_${user.uid}`), {
+        userId: user.uid,
+        testId,
+        testTitle,
+        role,
+        topics,
+        codingQuestion,
+        code: currentCode,
+        viva: vivaQA,
+        warnings: testWarnings,
+        summaryReport: summary,
+        resume,
+        submittedAt: new Date().toISOString(),
+      });
 
-    // ✅ Update testAssignments status to "completed"
-    await updateDoc(doc(db, "testAssignments", testId), {
-      status: "completed",
-      completedAt: new Date().toISOString(),
-      code: currentCode,
-      testData: {
-        ...testData,
-        endTime: new Date().toISOString(),
-      },
-    });
+      // ✅ Update testAssignments status to "completed"
+      await updateDoc(doc(db, "testAssignments", testId), {
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        code: currentCode,
+        testData: {
+          ...testData,
+          endTime: new Date().toISOString(),
+        },
+      });
 
-    // ✅ Stop media stream if applicable
+      // ✅ Stop media stream if applicable
 
-    alert("Test submitted successfully!");
-    navigate(`/test/${testId}/report`);
-  } catch (err) {
-    console.error("Submission Error:", err);
-    alert("Failed to submit test.");
-  }
+      alert("Test submitted successfully!");
+      navigate(`/test/${testId}/report`);
+    } catch (err) {
+      console.error("Submission Error:", err);
+      alert("Failed to submit test.");
+    }
 
-  setSubmitting(false);
-};
+    setSubmitting(false);
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -323,7 +391,8 @@ const TestTakingPage: React.FC = () => {
             Grant Camera & Mic
           </button>
           <div className="text-sm mb-2">
-            Camera: {cameraGranted ? "✅" : "❌"} | Mic: {micGranted ? "✅" : "❌"}
+            Camera: {cameraGranted ? "✅" : "❌"} | Mic:{" "}
+            {micGranted ? "✅" : "❌"}
           </div>
 
           <button
@@ -347,64 +416,149 @@ const TestTakingPage: React.FC = () => {
       ) : (
         <>
           {/* Sidebar Viva Section */}
-          <aside className="w-1/3 p-6 bg-white border-r border-gray-300">
-            <h2 className="text-xl font-semibold mb-4">Practical Question</h2>
-            <p className="mb-6">{practicalQuestion || "Loading..."}</p>
+          <aside className="w-1/3 p-6 bg-white border-r border-gray-300 overflow-y-auto max-h-screen">
+            <h2 className="text-2xl font-bold mb-4 text-blue-700">
+              {" "}
+              Practical Question
+            </h2>
 
-            <h3 className="text-lg font-semibold mb-2">Viva Questions</h3>
-            <div className="flex space-x-2 mb-2">
-              {vivaQuestions.map((question, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setCurrentVivaIndex(index);
-                    const speech = new SpeechSynthesisUtterance(question);
-                    window.speechSynthesis.cancel();
-                    window.speechSynthesis.speak(speech);
-                  }}
-                  className={`px-3 py-1 rounded border ${
-                    index === currentVivaIndex
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-blue-600 border-blue-600 hover:bg-blue-100"
-                  }`}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
+            {practicalQuestion ? (
+              (() => {
+                const parsed = parseQuestion(practicalQuestion);
 
-            <button
-              onClick={startRecording}
-              className="text-blue-600 underline text-sm"
-            >
-              Record Answer for Question {currentVivaIndex + 1}
-            </button>
+                return (
+                  <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
+                    {parsed["Problem Statement"] && (
+                      <p>
+                        <strong className="text-blue-600">🧾 Problem:</strong>{" "}
+                        {parsed["Problem Statement"]}
+                      </p>
+                    )}
+
+                    {parsed["Requirements"] && (
+                      <div>
+                        <strong className="text-blue-600">
+                          📋 Requirements:
+                        </strong>
+                        <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                          {parsed["Requirements"]}
+                        </pre>
+                      </div>
+                    )}
+
+                    {parsed["Example Input/Output"] && (
+                      <div>
+                        <strong className="text-blue-600">💡 Example:</strong>
+                        <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                          {parsed["Example Input/Output"]}
+                        </pre>
+                      </div>
+                    )}
+
+                    {parsed["Expected Output"] && (
+                      <div>
+                        <strong className="text-blue-600">
+                          ✅ Expected Output:
+                        </strong>
+                        <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                          {parsed["Expected Output"]}
+                        </pre>
+                      </div>
+                    )}
+
+                    {parsed["Constraints"] && (
+                      <div>
+                        <strong className="text-blue-600">
+                          ⚙️ Constraints:
+                        </strong>
+                        <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                          {parsed["Constraints"]}
+                        </pre>
+                      </div>
+                    )}
+
+                    {parsed["Hints"] && (
+                      <p className="italic text-gray-600">
+                        💡 Hint: {parsed["Hints"]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <p className="text-gray-500">Loading...</p>
+            )}
           </aside>
 
           {/* Main Test Panel */}
-          <main className="w-2/3 p-6 bg-white flex flex-col">
-            <div className="text-right text-red-600 font-semibold mb-2">
-              Time Left: {Math.floor(timeLeft / 60)}:
-              {(timeLeft % 60).toString().padStart(2, "0")}
-            </div>
+          <main className="w-2/3 p-6 bg-white flex flex-col fixed right-0">
+            <div className="flex items-center justify-between w-full">
+              <div className="mb-4 w-1/4">
+                <label className="block text-sm font-medium mb-1 ">
+                  Choose Language
+                </label>
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(Number(e.target.value))}
+                  className="p-2 border rounded w-full"
+                >
+                  {languageOptions.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-right text-red-600 font-semibold mb-2">
+                Time Left: {Math.floor(timeLeft / 60)}:
+                {(timeLeft % 60).toString().padStart(2, "0")}
+              </div>
+              <div className="mt-4 flex gap-4">
+                <button
+                  onClick={handleRunCode}
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                >
+                  Run Code
+                </button>
 
+                <button
+                  onClick={handleSubmit}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Submit Test
+                </button>
+              </div>
+            </div>
             <CodeEditorSection code={currentCode} onChange={setCurrentCode} />
-
-            <div className="mt-4 flex gap-4">
+            <h3 className="text-lg font-semibold mb-2">Viva Questions</h3>
+            <span>
+              <div className="flex space-x-2 mb-2">
+                {vivaQuestions.map((question, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setCurrentVivaIndex(index);
+                      const speech = new SpeechSynthesisUtterance(question);
+                      window.speechSynthesis.cancel();
+                      window.speechSynthesis.speak(speech);
+                    }}
+                    className={`px-3 py-1 rounded border ${
+                      index === currentVivaIndex
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-blue-600 border-blue-600 hover:bg-blue-100"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
               <button
-                onClick={handleRunCode}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                onClick={startRecording}
+                className="text-blue-600 underline text-sm"
               >
-                Run Code
+                Record Answer for Question {currentVivaIndex + 1}
               </button>
-
-              <button
-                onClick={handleSubmit}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Submit Test
-              </button>
-            </div>
+            </span>
 
             <pre className="mt-4 bg-gray-100 p-4 rounded">{output}</pre>
           </main>
