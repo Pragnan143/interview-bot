@@ -10,6 +10,7 @@ import {
   generateAtsResume,
 } from "../../services/geminiService";
 import CodeEditorSection from "../../components/CodeEditorSection";
+import { CheckCircle, XCircle, Info, AlertCircle } from "lucide-react";
 
 const parseQuestion = (question: string) => {
   const parts = question.split(
@@ -36,6 +37,7 @@ const TestTakingPage: React.FC = () => {
   const [micGranted, setMicGranted] = useState(false);
   const [fullscreenGranted, setFullscreenGranted] = useState(false);
   const [testStarted, setTestStarted] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   // Test and Viva logic
   const [practicalQuestion, setPracticalQuestion] = useState<string>("");
@@ -49,6 +51,7 @@ const TestTakingPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<number>(71); // Default: Python (id 71)
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const recognitionRef = useRef<any>(null);
 
@@ -56,6 +59,18 @@ const TestTakingPage: React.FC = () => {
     import.meta.env.VITE_JUDGE0_URL || "judge0-ce.p.rapidapi.com";
   const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY;
 
+  // useEffect(() => {
+  //   if (videoRef.current && stream) {
+  //     videoRef.current.srcObject = stream;
+  //     videoRef.current.play();
+  //   }
+  //   // Cleanup on unmount: stop all tracks
+  //   return () => {
+  //     if (stream) {
+  //       stream.getTracks().forEach((track) => track.stop());
+  //     }
+  //   };
+  // }, [stream]);
   const languageOptions = [
     { id: 71, name: "Python (3.8.1)" },
     { id: 54, name: "C++ (GCC 9.2.0)" },
@@ -65,20 +80,53 @@ const TestTakingPage: React.FC = () => {
 
   const testWarnings: any[] = [];
 
+  // const checkPermissions = async () => {
+  //   try {
+  //     const stream = await navigator.mediaDevices.getUserMedia({
+  //       video: true,
+  //       audio: true,
+  //     });
+  //     setCameraGranted(true);
+  //     setMicGranted(true);
+  //     stream.getTracks().forEach((track) => track.stop());
+  //   } catch {
+  //     alert("Please allow camera and mic permissions.");
+  //   }
+  // };
+
   const checkPermissions = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
       setCameraGranted(true);
       setMicGranted(true);
-      stream.getTracks().forEach((track) => track.stop());
+      setStream(mediaStream); // Save stream to state instead of stopping it
     } catch {
       alert("Please allow camera and mic permissions.");
+      setCameraGranted(false);
+      setMicGranted(false);
     }
   };
 
+  // Then, in your component:
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+    }
+
+    // Cleanup when component unmounts or stream changes:
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
   const enterFullscreen = async () => {
     try {
       await document.documentElement.requestFullscreen();
@@ -291,9 +339,7 @@ const TestTakingPage: React.FC = () => {
       const result = response.data;
 
       setOutput(
-        result.stderr
-          ? `❌ Error:\n${result.stderr}`
-          : `✅ Output:\n${result.stdout}`
+        result.stderr ? `Error Occured:\n${result.stderr}` : `${result.stdout}`
       );
     } catch (error) {
       setOutput(`❌ Failed to run code: ${error.message}`);
@@ -384,25 +430,72 @@ const TestTakingPage: React.FC = () => {
         <div className="m-auto bg-white p-8 rounded shadow max-w-lg text-center">
           <h2 className="text-2xl font-bold mb-4">Prepare for the Test</h2>
 
-          <button
-            onClick={checkPermissions}
-            className="bg-blue-600 text-white px-4 py-2 rounded mb-2"
-          >
-            Grant Camera & Mic
-          </button>
-          <div className="text-sm mb-2">
-            Camera: {cameraGranted ? "✅" : "❌"} | Mic:{" "}
-            {micGranted ? "✅" : "❌"}
+          {/* Guidelines Section */}
+          <div className="text-left mb-6">
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-600" />
+              Guidelines
+            </h3>
+            <ul className="space-y-2 text-gray-700">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Ensure your camera and microphone are working properly.
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Grant permissions for camera and microphone access.
+              </li>
+              <li className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-yellow-500" />
+                Enter fullscreen mode to prevent distractions.
+              </li>
+              <li className="flex items-center gap-2">
+                <Info className="w-5 h-5 text-blue-400" />
+                Do not switch tabs or leave fullscreen during the test.
+              </li>
+            </ul>
           </div>
 
-          <button
-            onClick={enterFullscreen}
-            className="bg-yellow-500 text-white px-4 py-2 rounded mb-2"
-          >
-            Enter Fullscreen
-          </button>
-          <div className="text-sm mb-4">
-            Fullscreen: {fullscreenGranted ? "✅" : "❌"}
+          <div className="flex justify-center gap-8 mb-4">
+            <div className="text-center">
+              <button
+                onClick={checkPermissions}
+                className="bg-blue-600 text-white px-4 py-2 rounded mb-2"
+              >
+                Grant Camera & Mic
+              </button>
+              <div className="text-sm flex justify-center items-center gap-1">
+                Camera:{" "}
+                {cameraGranted ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}{" "}
+                | Mic:{" "}
+                {micGranted ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+              </div>
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={enterFullscreen}
+                className="bg-yellow-500 text-white px-4 py-2 rounded mb-2"
+              >
+                Enter Fullscreen
+              </button>
+              <div className="text-sm flex justify-center items-center gap-1">
+                Fullscreen:{" "}
+                {fullscreenGranted ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+              </div>
+            </div>
           </div>
 
           <button
@@ -415,82 +508,165 @@ const TestTakingPage: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Sidebar Viva Section */}
+          {/* <aside className="w-1/3 p-6 bg-white border-r border-gray-300 overflow-y-auto max-h-screen">
+            <div>
+              <h2 className="text-2xl font-bold mb-4 text-blue-700">
+                Practical Question
+              </h2>
+              {practicalQuestion ? (
+                (() => {
+                  const parsed = parseQuestion(practicalQuestion);
+
+                  return (
+                    <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
+                      {parsed["Problem Statement"] && (
+                        <p>
+                          <strong className="text-blue-600">🧾 Problem:</strong>{" "}
+                          {parsed["Problem Statement"]}
+                        </p>
+                      )}
+
+                      {parsed["Requirements"] && (
+                        <div>
+                          <strong className="text-blue-600">
+                            📋 Requirements:
+                          </strong>
+                          <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                            {parsed["Requirements"]}
+                          </pre>
+                        </div>
+                      )}
+
+                      {parsed["Example Input/Output"] && (
+                        <div>
+                          <strong className="text-blue-600">💡 Example:</strong>
+                          <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                            {parsed["Example Input/Output"]}
+                          </pre>
+                        </div>
+                      )}
+
+                      {parsed["Expected Output"] && (
+                        <div>
+                          <strong className="text-blue-600">
+                            ✅ Expected Output:
+                          </strong>
+                          <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                            {parsed["Expected Output"]}
+                          </pre>
+                        </div>
+                      )}
+
+                      {parsed["Constraints"] && (
+                        <div>
+                          <strong className="text-blue-600">
+                            ⚙️ Constraints:
+                          </strong>
+                          <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                            {parsed["Constraints"]}
+                          </pre>
+                        </div>
+                      )}
+
+                      {parsed["Hints"] && (
+                        <p className="italic text-gray-600">
+                          💡 Hint: {parsed["Hints"]}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : (
+                <p className="text-gray-500">Loading...</p>
+              )}
+            </div>
+          </aside> */}
           <aside className="w-1/3 p-6 bg-white border-r border-gray-300 overflow-y-auto max-h-screen">
-            <h2 className="text-2xl font-bold mb-4 text-blue-700">
-              {" "}
-              Practical Question
-            </h2>
+            {/* Video preview */}
+            
+              {/* <video
+                ref={videoRef}
+                className="rounded border border-gray-300 object-cover"
+                width="200" // wider width
+                height="200" // height to maintain 16:9 ratio (400:225 ~ 16:9)
+                autoPlay
+                muted
+                playsInline
+              /> */}
+        
+            
+              {/* Your Practical Question UI here */}
+              <h2 className="text-2xl font-bold mb-4 text-blue-700">
+                Practical Question
+              </h2>
+              {practicalQuestion ? (
+                (() => {
+                  const parsed = parseQuestion(practicalQuestion);
 
-            {practicalQuestion ? (
-              (() => {
-                const parsed = parseQuestion(practicalQuestion);
+                  return (
+                    <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
+                      {parsed["Problem Statement"] && (
+                        <p>
+                          <strong className="text-blue-600">🧾 Problem:</strong>{" "}
+                          {parsed["Problem Statement"]}
+                        </p>
+                      )}
 
-                return (
-                  <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
-                    {parsed["Problem Statement"] && (
-                      <p>
-                        <strong className="text-blue-600">🧾 Problem:</strong>{" "}
-                        {parsed["Problem Statement"]}
-                      </p>
-                    )}
+                      {parsed["Requirements"] && (
+                        <div>
+                          <strong className="text-blue-600">
+                            📋 Requirements:
+                          </strong>
+                          <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                            {parsed["Requirements"]}
+                          </pre>
+                        </div>
+                      )}
 
-                    {parsed["Requirements"] && (
-                      <div>
-                        <strong className="text-blue-600">
-                          📋 Requirements:
-                        </strong>
-                        <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
-                          {parsed["Requirements"]}
-                        </pre>
-                      </div>
-                    )}
+                      {parsed["Example Input/Output"] && (
+                        <div>
+                          <strong className="text-blue-600">💡 Example:</strong>
+                          <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                            {parsed["Example Input/Output"]}
+                          </pre>
+                        </div>
+                      )}
 
-                    {parsed["Example Input/Output"] && (
-                      <div>
-                        <strong className="text-blue-600">💡 Example:</strong>
-                        <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
-                          {parsed["Example Input/Output"]}
-                        </pre>
-                      </div>
-                    )}
+                      {parsed["Expected Output"] && (
+                        <div>
+                          <strong className="text-blue-600">
+                            ✅ Expected Output:
+                          </strong>
+                          <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                            {parsed["Expected Output"]}
+                          </pre>
+                        </div>
+                      )}
 
-                    {parsed["Expected Output"] && (
-                      <div>
-                        <strong className="text-blue-600">
-                          ✅ Expected Output:
-                        </strong>
-                        <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
-                          {parsed["Expected Output"]}
-                        </pre>
-                      </div>
-                    )}
+                      {parsed["Constraints"] && (
+                        <div>
+                          <strong className="text-blue-600">
+                            ⚙️ Constraints:
+                          </strong>
+                          <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                            {parsed["Constraints"]}
+                          </pre>
+                        </div>
+                      )}
 
-                    {parsed["Constraints"] && (
-                      <div>
-                        <strong className="text-blue-600">
-                          ⚙️ Constraints:
-                        </strong>
-                        <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
-                          {parsed["Constraints"]}
-                        </pre>
-                      </div>
-                    )}
-
-                    {parsed["Hints"] && (
-                      <p className="italic text-gray-600">
-                        💡 Hint: {parsed["Hints"]}
-                      </p>
-                    )}
-                  </div>
-                );
-              })()
-            ) : (
-              <p className="text-gray-500">Loading...</p>
-            )}
+                      {parsed["Hints"] && (
+                        <p className="italic text-gray-600">
+                          💡 Hint: {parsed["Hints"]}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : (
+                <p className="text-gray-500">Loading...</p>
+              )}
           </aside>
 
-          {/* Main Test Panel */}
           <main className="w-2/3 p-6 bg-white flex flex-col fixed right-0">
             <div className="flex items-center justify-between w-full">
               <div className="mb-4 w-1/4">
@@ -522,8 +698,9 @@ const TestTakingPage: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={handleSubmit}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  onClick={() => setShowConfirmModal(true)}
+                  disabled={submitting}
+                  className="btn-submit"
                 >
                   Submit Test
                 </button>
@@ -560,9 +737,41 @@ const TestTakingPage: React.FC = () => {
               </button>
             </span>
 
-            <pre className="mt-4 bg-gray-100 p-4 rounded">{output}</pre>
+            <pre className="mt-4 bg-gray-100 p-4 rounded">
+              <p className="text-lg font-semibold mb-2">Output</p>
+              {output}
+            </pre>
           </main>
         </>
+      )}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded p-6 max-w-sm w-full shadow-lg">
+            <h3 className="text-xl font-semibold mb-4">Confirm Submission</h3>
+            <p className="mb-6">
+              Are you sure you want to submit the test? You won't be able to
+              make changes afterward.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  handleSubmit();
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                disabled={submitting}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
