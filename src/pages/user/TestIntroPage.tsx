@@ -453,6 +453,10 @@ const TestTakingPage: React.FC = () => {
                 <Info className="w-5 h-5 text-blue-400" />
                 Do not switch tabs or leave fullscreen during the test.
               </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Make sure to Attempt Viva questions Below Code editor
+              </li>
             </ul>
           </div>
 
@@ -583,8 +587,8 @@ const TestTakingPage: React.FC = () => {
           </aside> */}
           <aside className="w-1/3 p-6 bg-white border-r border-gray-300 overflow-y-auto max-h-screen">
             {/* Video preview */}
-            
-              {/* <video
+
+            {/* <video
                 ref={videoRef}
                 className="rounded border border-gray-300 object-cover"
                 width="200" // wider width
@@ -593,78 +597,77 @@ const TestTakingPage: React.FC = () => {
                 muted
                 playsInline
               /> */}
-        
-            
-              {/* Your Practical Question UI here */}
-              <h2 className="text-2xl font-bold mb-4 text-blue-700">
-                Practical Question
-              </h2>
-              {practicalQuestion ? (
-                (() => {
-                  const parsed = parseQuestion(practicalQuestion);
 
-                  return (
-                    <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
-                      {parsed["Problem Statement"] && (
-                        <p>
-                          <strong className="text-blue-600">🧾 Problem:</strong>{" "}
-                          {parsed["Problem Statement"]}
-                        </p>
-                      )}
+            {/* Your Practical Question UI here */}
+            <h2 className="text-2xl font-bold mb-4 text-blue-700">
+              Practical Question
+            </h2>
+            {practicalQuestion ? (
+              (() => {
+                const parsed = parseQuestion(practicalQuestion);
 
-                      {parsed["Requirements"] && (
-                        <div>
-                          <strong className="text-blue-600">
-                            📋 Requirements:
-                          </strong>
-                          <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
-                            {parsed["Requirements"]}
-                          </pre>
-                        </div>
-                      )}
+                return (
+                  <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
+                    {parsed["Problem Statement"] && (
+                      <p>
+                        <strong className="text-blue-600">🧾 Problem:</strong>{" "}
+                        {parsed["Problem Statement"]}
+                      </p>
+                    )}
 
-                      {parsed["Example Input/Output"] && (
-                        <div>
-                          <strong className="text-blue-600">💡 Example:</strong>
-                          <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
-                            {parsed["Example Input/Output"]}
-                          </pre>
-                        </div>
-                      )}
+                    {parsed["Requirements"] && (
+                      <div>
+                        <strong className="text-blue-600">
+                          📋 Requirements:
+                        </strong>
+                        <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                          {parsed["Requirements"]}
+                        </pre>
+                      </div>
+                    )}
 
-                      {parsed["Expected Output"] && (
-                        <div>
-                          <strong className="text-blue-600">
-                            ✅ Expected Output:
-                          </strong>
-                          <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
-                            {parsed["Expected Output"]}
-                          </pre>
-                        </div>
-                      )}
+                    {parsed["Example Input/Output"] && (
+                      <div>
+                        <strong className="text-blue-600">💡 Example:</strong>
+                        <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                          {parsed["Example Input/Output"]}
+                        </pre>
+                      </div>
+                    )}
 
-                      {parsed["Constraints"] && (
-                        <div>
-                          <strong className="text-blue-600">
-                            ⚙️ Constraints:
-                          </strong>
-                          <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
-                            {parsed["Constraints"]}
-                          </pre>
-                        </div>
-                      )}
+                    {parsed["Expected Output"] && (
+                      <div>
+                        <strong className="text-blue-600">
+                          ✅ Expected Output:
+                        </strong>
+                        <pre className="bg-gray-100 p-2 rounded text-xs whitespace-pre overflow-x-auto">
+                          {parsed["Expected Output"]}
+                        </pre>
+                      </div>
+                    )}
 
-                      {parsed["Hints"] && (
-                        <p className="italic text-gray-600">
-                          💡 Hint: {parsed["Hints"]}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <p className="text-gray-500">Loading...</p>
-              )}
+                    {parsed["Constraints"] && (
+                      <div>
+                        <strong className="text-blue-600">
+                          ⚙️ Constraints:
+                        </strong>
+                        <pre className="bg-gray-100 p-2 rounded whitespace-pre-wrap text-xs">
+                          {parsed["Constraints"]}
+                        </pre>
+                      </div>
+                    )}
+
+                    {parsed["Hints"] && (
+                      <p className="italic text-gray-600">
+                        💡 Hint: {parsed["Hints"]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <p className="text-gray-500">Loading...</p>
+            )}
           </aside>
 
           <main className="w-2/3 p-6 bg-white flex flex-col fixed right-0">

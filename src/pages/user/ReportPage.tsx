@@ -347,7 +347,7 @@ const ReportPage: React.FC = () => {
                   fontWeight: "bold",
                 }}
               >
-                📥 Download Resume (PDF)
+                📥 Download Sample Resume (PDF)
               </button>
 
               <button
