@@ -753,7 +753,7 @@ const TestTakingPage: React.FC = () => {
             <h3 className="text-xl font-semibold mb-4">Confirm Submission</h3>
             <p className="mb-6">
               Are you sure you want to submit the test? You won't be able to
-              make changes afterward.
+              make changes afterward.<br></br><p className="text-red-700"> Check you attempted Viva questions</p>
             </p>
             <div className="flex justify-end gap-4">
               <button
